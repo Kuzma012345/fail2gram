@@ -1,0 +1,50 @@
+---
+name: fail2gram
+
+secrets:
+  POSTGRES_PASSWORD:
+    file: ./db/secrets/POSTGRES_PASSWORD
+  APP_DB_PASSWORD:
+    file: ./app/secrets/DB_PASSWORD
+  TELEGRAM_TOKEN:
+    file: ./app/secrets/TELEGRAM_TOKEN
+
+services:
+  db:
+    build:
+      context: ./db
+      dockerfile: ./Containerfile
+    restart: unless-stopped
+    userns_mode: host
+    secrets:
+      - POSTGRES_PASSWORD
+    env_file: ./db/env
+    environment:
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+    ports:
+      - 5432:5432/tcp
+    volumes:
+      - db:/var/lib/postgresql/data/
+      - ./db/init/:/docker-entrypoint-initdb.d/:ro
+
+  app:
+    build:
+      context: ../src
+      dockerfile: ./Containerfile
+    restart: unless-stopped
+    userns_mode: host
+    depends_on:
+      - db
+    secrets:
+      - APP_DB_PASSWORD
+      - TELEGRAM_TOKEN
+    env_file:
+      - ./app/env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_PASSWORD_FILE: /run/secrets/APP_DB_PASSWORD
+      TELEGRAM_TOKEN_FILE: /run/secrets/TELEGRAM_TOKEN
+
+volumes:
+  db: null
